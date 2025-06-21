@@ -1,13 +1,18 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:thread_app_sample/image_view_widget';
+import 'package:thread_app_sample/thread_feed_write_controller.dart';
 
 class ThreadWritePage extends StatelessWidget {
   const ThreadWritePage({super.key});
+
   Future<void> getImagePickerData() async {
     final ImagePicker picker = ImagePicker();
     final List<XFile> images = await picker.pickMultiImage();
-    print(images.length);
+    Get.find<ThreadFeedWriteController>().setSelectedImages(images);
   }
 
   @override
@@ -75,6 +80,10 @@ class ThreadWritePage extends StatelessWidget {
                           contentPadding: EdgeInsets.zero,
                           border: InputBorder.none,
                         ),
+                        onChanged: (value) {
+                          Get.find<ThreadFeedWriteController>()
+                              .setContent(value);
+                        },
                       ),
                     ],
                   ),
@@ -85,65 +94,20 @@ class ThreadWritePage extends StatelessWidget {
             Row(
               children: [
                 SizedBox(width: 50),
-                Expanded(
-                  child: SizedBox(
-                    height: 250,
-                    child: PageView(
-                      padEnds: false,
-                      controller: PageController(viewportFraction: 0.4),
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(4.0),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Stack(children: [
-                              Container(
-                                color: Colors.grey.shade200,
-                              ),
-                              Positioned(
-                                right: 5,
-                                top: 5,
-                                child: Icon(Icons.close),
-                              )
-                            ]),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(4.0),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Stack(children: [
-                              Container(
-                                color: Colors.grey.shade200,
-                              ),
-                              Positioned(
-                                right: 5,
-                                top: 5,
-                                child: Icon(Icons.close),
-                              )
-                            ]),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(4.0),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Stack(children: [
-                              Container(
-                                color: Colors.grey.shade200,
-                              ),
-                              Positioned(
-                                right: 5,
-                                top: 5,
-                                child: Icon(Icons.close),
-                              )
-                            ]),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                Expanded(child: GetBuilder<ThreadFeedWriteController>(
+                  builder: (controller) {
+                    if (controller.selectedImages == null ||
+                        (controller.selectedImages?.isEmpty ?? true)) {
+                      return Container();
+                    }
+                    return ImageViewWidget(
+                      images: controller.selectedImages
+                              ?.map<File>((e) => File(e.path))
+                              .toList() ??
+                          [],
+                    );
+                  },
+                )),
               ],
             ),
             SizedBox(height: 15),
@@ -175,6 +139,41 @@ class ThreadWritePage extends StatelessWidget {
                         Image.asset('assets/images/align_icon.png', width: 30)),
               ],
             )
+          ],
+        ),
+      ),
+      bottomNavigationBar: Container(
+        height: 70,
+        padding: EdgeInsets.only(
+            left: 15, right: 15, bottom: MediaQuery.of(context).padding.bottom),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                '누구에게나 답글 및 인용 허용',
+                style: TextStyle(color: Color(0xff9a9a9a)),
+              ),
+            ),
+            GetBuilder<ThreadFeedWriteController>(builder: (controller) {
+              return GestureDetector(
+                onTap: () {
+                  if (controller.contents != '') {
+                    Get.find<ThreadFeedWriteController>().save();
+                  }
+                },
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(50),
+                    color: controller.contents != ''
+                        ? Colors.black
+                        : Color(0xff9a9a9a),
+                  ),
+                  child: Text('게시'),
+                ),
+              );
+            })
           ],
         ),
       ),

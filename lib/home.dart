@@ -1,6 +1,12 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:thread_app_sample/feed_model.dart';
+import 'package:thread_app_sample/home_feed_list_controller.dart';
+import 'package:thread_app_sample/image_view_widget';
+import 'package:thread_app_sample/thread_feed_write_controller.dart';
 import 'package:thread_app_sample/thread_write_page.dart';
+import 'package:timeago/timeago.dart' as timeago;
 
 class Home extends StatelessWidget {
   const Home({super.key});
@@ -26,8 +32,14 @@ class Home extends StatelessWidget {
 
   Widget _quickFeedWriteView() {
     return GestureDetector(
-      onTap: () {
-        Get.to(() => ThreadWritePage());
+      onTap: () async {
+        var result = await Get.to<FeedModel?>(ThreadWritePage(),
+            binding: BindingsBuilder(() {
+          Get.put(ThreadFeedWriteController());
+        }));
+        if (result != null) {
+          Get.find<HomeFeedListcontroller>().addFeed(result);
+        }
       },
       child: Column(
         children: [
@@ -87,13 +99,13 @@ class Home extends StatelessWidget {
     );
   }
 
-  Widget _singleFeed() {
+  Widget _singleFeed(FeedModel model) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _leftProfileArea(),
         Expanded(
-          child: _contentArea(),
+          child: _contentArea(model),
         ),
       ],
     );
@@ -112,7 +124,7 @@ class Home extends StatelessWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(50),
                   child: Image.network(
-                    'https://picsum.photos/300/300',
+                    'https://yt3.googleusercontent.com/XmYJ7m6JFlhA5BNLnQdnlew7g1E6YGSE4p8hl8ow_pOI6-cZkGdjo38oJhBG7NPrj9eawodgqA=s900-c-k-c0x00ffffff-no-rj',
                     width: 50,
                   ),
                 ),
@@ -138,18 +150,44 @@ class Home extends StatelessWidget {
             ],
           ),
         ),
-        SizedBox(height: 15),
-        Container(
-          width: 2,
-          height: 200,
-          color: Color(0xffe5e5e5),
-        ),
       ],
     );
   }
 
-  Widget _contentArea() {
+  void _showCupertinoActionSheet(String id) {
+    showCupertinoModalPopup(
+      context: Get.context!,
+      builder: (BuildContext context) => CupertinoActionSheet(
+        actions: <CupertinoActionSheetAction>[
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              print('Edit Pressed');
+            },
+            child: Text('수정'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              print('Delete Pressed');
+            },
+            isDestructiveAction: true,
+            child: Text('삭제'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () {
+            Navigator.pop(context);
+          },
+          child: Text('취소'),
+        ),
+      ),
+    );
+  }
+
+  Widget _contentArea(FeedModel model) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SizedBox(
           height: 30,
@@ -168,7 +206,10 @@ class Home extends StatelessWidget {
                   ),
                   SizedBox(width: 7),
                   Text(
-                    '14시간',
+                    timeago.format(
+                        DateTime.now().subtract(
+                            DateTime.now().difference(model.createdAt)),
+                        locale: 'ko'),
                     style: TextStyle(
                       color: Color(0xff999999),
                       fontSize: 14,
@@ -177,7 +218,9 @@ class Home extends StatelessWidget {
                 ],
               ),
               GestureDetector(
-                onTap: () {},
+                onTap: () {
+                  _showCupertinoActionSheet(model.id);
+                },
                 child: Icon(
                   Icons.more_horiz,
                   color: Color(0xff999999),
@@ -187,21 +230,11 @@ class Home extends StatelessWidget {
           ),
         ),
         Text(
-          '장진우 셰프님이 제주시 산지천에 레스토랑을 또 하 나 오픈했다. 이번에는 태국식당. "쏨" 아직 가오픈 인데 어째어째 초대를 받아 점심을 먹으러 갔다. 제 주도에 있는 진우님 식당 거의 다 먹어봤는데 난 여 기가 최고인듯 ^^ 마침 진우님 생일이어서 간단한 간식거리도 사드리고 ^^ 여긴 자주 와야겠다 ㅎㅎ 카오만가이(닭수육+닭육수밥), 느어팟끄라파오(타이 바질 소고기 볶음 덮밥), 쏨꾀이튀유톰양(쏨표 새 우 & 돼지고기 톰양 계란면), 공신채볶음과 타이밀 크티와 코코넛쿨러를 것들였다. 느므 맛있네... 제주',
+          model.contents,
+          style: TextStyle(color: Colors.black),
         ),
         SizedBox(height: 10),
-        SizedBox(
-          height: 200,
-          child: PageView(
-            padEnds: false,
-            controller: PageController(viewportFraction: 0.75),
-            children: [
-              Image.asset('assets/images/2.png'),
-              Image.asset('assets/images/1.png'),
-              Image.asset('assets/images/3.png'),
-            ],
-          ),
-        ),
+        if (model.images.isNotEmpty) ImageViewWidget(images: model.images),
         SizedBox(height: 10),
         Row(
           children: [
@@ -276,9 +309,28 @@ class Home extends StatelessWidget {
               child: _quickFeedWriteView(),
             ),
             Divider(),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              child: _singleFeed(),
+            GetBuilder<HomeFeedListcontroller>(
+              builder: (controller) {
+                if (controller.feedList.isEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(30.0),
+                      child: Text(
+                        '피드가 없습니다.',
+                        style: TextStyle(color: Colors.black),
+                      ),
+                    ),
+                  );
+                }
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 15),
+                  child: Column(
+                      children: List.generate(
+                    controller.feedList.length,
+                    (index) => _singleFeed(controller.feedList[index]),
+                  )),
+                );
+              },
             ),
           ],
         ),
